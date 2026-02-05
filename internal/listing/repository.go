@@ -1,0 +1,242 @@
+package listing
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+// ListingRepository interface
+type ListingRepository interface {
+	Create(ctx context.Context, car *Car) error
+	FindByID(ctx context.Context, id uuid.UUID) (*Car, error)
+	FindAll(ctx context.Context, query ListCarsQuery) ([]Car, int64, error)
+	Update(ctx context.Context, car *Car) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	FindBySellerID(ctx context.Context, sellerID uuid.UUID, page, limit int) ([]Car, int64, error)
+	IncrementViews(ctx context.Context, carID uuid.UUID) error
+
+	// Favorites
+	AddToFavorites(ctx context.Context, userID, carID uuid.UUID) error
+	RemoveFromFavorites(ctx context.Context, userID, carID uuid.UUID) error
+	GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]Car, int64, error)
+	IsFavorited(ctx context.Context, userID, carID uuid.UUID) (bool, error)
+}
+
+type postgresRepository struct {
+	db *gorm.DB
+}
+
+// NewRepository creates a new ListingRepository
+func NewRepository(db *gorm.DB) ListingRepository {
+	return &postgresRepository{db: db}
+}
+
+func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
+	// Use raw SQL to properly handle PostGIS coordinates and PostgreSQL ENUM types
+	// If lat/long are 0,0 (default), store NULL so map won't show
+	query := `
+		INSERT INTO cars (
+			id, seller_id, title, description, make, model, year, mileage, price,
+			condition, transmission, fuel_type, color, vin, images, city, state,
+			coordinates, status, is_featured, views_count, created_at, updated_at, expires_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9,
+			NULLIF($10, '')::car_condition,
+			NULLIF($11, '')::car_transmission,
+			$12::car_fuel_type,
+			NULLIF($13, ''), NULLIF($14, ''), $15, $16, NULLIF($17, ''),
+			CASE WHEN $18 = 0 AND $19 = 0 THEN NULL ELSE ST_SetSRID(ST_MakePoint($18, $19), 4326) END,
+			$20::car_status, $21, $22, $23, $24, $25
+		)
+	`
+	return r.db.WithContext(ctx).Exec(query,
+		car.ID, car.SellerID, car.Title, car.Description,
+		car.Make, car.Model, car.Year, car.Mileage, car.Price,
+		car.Condition, car.Transmission, car.FuelType, car.Color, car.VIN,
+		car.Images, car.City, car.State,
+		car.Longitude, car.Latitude, // ST_MakePoint takes (x=lon, y=lat)
+		car.Status, car.IsFeatured, car.ViewsCount,
+		car.CreatedAt, car.UpdatedAt, car.ExpiresAt,
+	).Error
+}
+
+func (r *postgresRepository) FindByID(ctx context.Context, id uuid.UUID) (*Car, error) {
+	var car Car
+	query := `
+		SELECT c.*,
+			   ST_X(c.coordinates::geometry) as longitude,
+			   ST_Y(c.coordinates::geometry) as latitude,
+			   u.full_name as seller_name,
+			   u.profile_photo_url as seller_photo
+		FROM cars c
+		LEFT JOIN users u ON c.seller_id = u.id
+		WHERE c.id = ? AND c.status != 'deleted'
+	`
+	err := r.db.WithContext(ctx).Raw(query, id.String()).Scan(&car).Error
+	if err != nil {
+		return nil, err
+	}
+	if car.ID == uuid.Nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &car, nil
+}
+
+func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Car, int64, error) {
+	var cars []Car
+	var total int64
+
+	// Build base query - Note: seller_id is TEXT, users.id is UUID
+	baseQuery := `
+		FROM cars c
+		JOIN users u ON c.seller_id = u.id
+		WHERE c.status = 'active'
+	`
+	var args []interface{}
+	var conditions []string
+
+	if q.Make != "" {
+		conditions = append(conditions, "c.make = ?")
+		args = append(args, q.Make)
+	}
+	if q.Model != "" {
+		conditions = append(conditions, "c.model = ?")
+		args = append(args, q.Model)
+	}
+	if q.MinPrice > 0 {
+		conditions = append(conditions, "c.price >= ?")
+		args = append(args, q.MinPrice)
+	}
+	if q.MaxPrice > 0 {
+		conditions = append(conditions, "c.price <= ?")
+		args = append(args, q.MaxPrice)
+	}
+	if q.City != "" {
+		conditions = append(conditions, "c.city = ?")
+		args = append(args, q.City)
+	}
+	if q.Condition != "" {
+		conditions = append(conditions, "c.condition = ?")
+		args = append(args, q.Condition)
+	}
+
+	if len(conditions) > 0 {
+		baseQuery += " AND " + strings.Join(conditions, " AND ")
+	}
+
+	// Count total
+	countQuery := "SELECT count(*) " + baseQuery
+	if err := r.db.WithContext(ctx).Raw(countQuery, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Sorting
+	order := "c.created_at DESC"
+	switch q.SortBy {
+	case "price_asc":
+		order = "c.price ASC"
+	case "price_desc":
+		order = "c.price DESC"
+	case "year_asc":
+		order = "c.year ASC"
+	case "year_desc":
+		order = "c.year DESC"
+	}
+
+	// Pagination
+	offset := (q.Page - 1) * q.Limit
+
+	// Final Select - Extract lat/long from coordinates
+	selectQuery := `
+		SELECT c.*,
+			   ST_X(c.coordinates::geometry) as longitude,
+			   ST_Y(c.coordinates::geometry) as latitude,
+			   u.full_name as seller_name,
+			   u.profile_photo_url as seller_photo 
+	` + baseQuery + fmt.Sprintf(" ORDER BY %s, c.id DESC LIMIT ? OFFSET ?", order)
+
+	args = append(args, q.Limit, offset)
+
+	if err := r.db.WithContext(ctx).Raw(selectQuery, args...).Scan(&cars).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return cars, total, nil
+}
+
+func (r *postgresRepository) Update(ctx context.Context, car *Car) error {
+	return r.db.WithContext(ctx).Save(car).Error
+}
+
+func (r *postgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	// Soft delete
+	return r.db.WithContext(ctx).Exec("UPDATE cars SET status = 'deleted' WHERE id = ?", id.String()).Error
+}
+
+func (r *postgresRepository) FindBySellerID(ctx context.Context, sellerID uuid.UUID, page, limit int) ([]Car, int64, error) {
+	var cars []Car
+	var total int64
+	offset := (page - 1) * limit
+
+	if err := r.db.WithContext(ctx).Model(&Car{}).Where("seller_id = ? AND status != 'deleted'", sellerID.String()).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := `
+		SELECT c.*
+		FROM cars c
+		WHERE c.seller_id = ? AND c.status != 'deleted'
+		ORDER BY c.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	err := r.db.WithContext(ctx).Raw(query, sellerID.String(), limit, offset).Scan(&cars).Error
+	return cars, total, err
+}
+
+func (r *postgresRepository) IncrementViews(ctx context.Context, carID uuid.UUID) error {
+	return r.db.WithContext(ctx).Exec("UPDATE cars SET views_count = views_count + 1 WHERE id = ?", carID.String()).Error
+}
+
+func (r *postgresRepository) AddToFavorites(ctx context.Context, userID, carID uuid.UUID) error {
+	query := "INSERT INTO favorites (user_id, car_id) VALUES (?, ?) ON CONFLICT DO NOTHING"
+	return r.db.WithContext(ctx).Exec(query, userID.String(), carID.String()).Error
+}
+
+func (r *postgresRepository) RemoveFromFavorites(ctx context.Context, userID, carID uuid.UUID) error {
+	return r.db.WithContext(ctx).Exec("DELETE FROM favorites WHERE user_id = ? AND car_id = ?", userID.String(), carID.String()).Error
+}
+
+func (r *postgresRepository) GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]Car, int64, error) {
+	var cars []Car
+	var total int64
+	offset := (page - 1) * limit
+
+	// Count
+	r.db.WithContext(ctx).Table("favorites").Where("user_id = ?", userID.String()).Count(&total)
+
+	query := `
+		SELECT c.*,
+			   ST_X(c.coordinates::geometry) as longitude,
+			   ST_Y(c.coordinates::geometry) as latitude,
+			   u.full_name as seller_name,
+			   u.profile_photo_url as seller_photo
+		FROM favorites f
+		JOIN cars c ON f.car_id = c.id
+		LEFT JOIN users u ON c.seller_id = u.id
+		WHERE f.user_id = ?
+		ORDER BY f.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	err := r.db.WithContext(ctx).Raw(query, userID.String(), limit, offset).Scan(&cars).Error
+	return cars, total, err
+}
+
+func (r *postgresRepository) IsFavorited(ctx context.Context, userID, carID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Table("favorites").Where("user_id = ? AND car_id = ?", userID.String(), carID.String()).Count(&count).Error
+	return count > 0, err
+}

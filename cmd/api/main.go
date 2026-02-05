@@ -55,6 +55,12 @@ func main() {
 	}
 	defer database.CloseRedis()
 
+	// Run SQL Migrations (Automated for Railway/Docker)
+	if err := database.RunMigrations(database.DB); err != nil {
+		log.Printf("⚠ Warning: SQL Migrations failed: %v", err)
+		// Don't fatal, as it might be a transient issue or existing schema
+	}
+
 	// Check if tables exist before running auto-migrations
 	// This avoids constraint name conflicts when tables are created via SQL migrations
 	var tableExists bool

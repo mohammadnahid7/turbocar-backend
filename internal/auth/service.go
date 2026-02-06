@@ -119,7 +119,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*AuthResponse, 
 
 	// Store refresh token in Redis (30 days expiry)
 	sessionKey := fmt.Sprintf("session:%s", user.ID.String())
-	if err := database.Set(ctx, sessionKey, refreshToken, 30*24*time.Hour); err != nil {
+	if err := database.Set(ctx, sessionKey, refreshToken, 5*365*24*time.Hour); err != nil {
 		return nil, fmt.Errorf("failed to store session: %w", err)
 	}
 

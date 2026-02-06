@@ -24,6 +24,9 @@ type ListingRepository interface {
 	RemoveFromFavorites(ctx context.Context, userID, carID uuid.UUID) error
 	GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]Car, int64, error)
 	IsFavorited(ctx context.Context, userID, carID uuid.UUID) (bool, error)
+
+	// Limits
+	CountDailyPosts(ctx context.Context, userID uuid.UUID) (int64, error)
 }
 
 type postgresRepository struct {
@@ -42,7 +45,7 @@ func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
 		INSERT INTO cars (
 			id, seller_id, title, description, make, model, year, mileage, price,
 			condition, transmission, fuel_type, color, vin, images, city, state,
-			latitude, longitude, status, is_featured, views_count, created_at, updated_at, expires_at
+			latitude, longitude, status, is_featured, views_count, created_at, updated_at, expires_at, chat_only
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9,
 			NULLIF($10, '')::car_condition,
@@ -51,7 +54,7 @@ func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
 			NULLIF($13, ''), NULLIF($14, ''), $15, $16, NULLIF($17, ''),
 			CASE WHEN $18 = 0 THEN NULL ELSE $18 END,
 			CASE WHEN $19 = 0 THEN NULL ELSE $19 END,
-			$20::car_status, $21, $22, $23, $24, $25
+			$20::car_status, $21, $22, $23, $24, $25, $26
 		)
 	`
 	return r.db.WithContext(ctx).Exec(query,
@@ -61,7 +64,7 @@ func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
 		car.Images, car.City, car.State,
 		car.Latitude, car.Longitude,
 		car.Status, car.IsFeatured, car.ViewsCount,
-		car.CreatedAt, car.UpdatedAt, car.ExpiresAt,
+		car.CreatedAt, car.UpdatedAt, car.ExpiresAt, car.ChatOnly,
 	).Error
 }
 
@@ -70,7 +73,8 @@ func (r *postgresRepository) FindByID(ctx context.Context, id uuid.UUID) (*Car, 
 	query := `
 		SELECT c.*,
 			   u.full_name as seller_name,
-			   u.profile_photo_url as seller_photo
+			   u.profile_photo_url as seller_photo,
+			   u.phone as seller_phone
 		FROM cars c
 		LEFT JOIN users u ON c.seller_id = u.id
 		WHERE c.id = ? AND c.status != 'deleted'
@@ -153,7 +157,8 @@ func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Ca
 	selectQuery := `
 		SELECT c.*,
 			   u.full_name as seller_name,
-			   u.profile_photo_url as seller_photo 
+			   u.profile_photo_url as seller_photo,
+			   u.phone as seller_phone
 	` + baseQuery + fmt.Sprintf(" ORDER BY %s, c.id DESC LIMIT ? OFFSET ?", order)
 
 	args = append(args, q.Limit, offset)
@@ -218,7 +223,8 @@ func (r *postgresRepository) GetFavorites(ctx context.Context, userID uuid.UUID,
 	query := `
 		SELECT c.*,
 			   u.full_name as seller_name,
-			   u.profile_photo_url as seller_photo
+			   u.profile_photo_url as seller_photo,
+			   u.phone as seller_phone
 		FROM favorites f
 		JOIN cars c ON f.car_id = c.id
 		LEFT JOIN users u ON c.seller_id = u.id
@@ -234,4 +240,17 @@ func (r *postgresRepository) IsFavorited(ctx context.Context, userID, carID uuid
 	var count int64
 	err := r.db.WithContext(ctx).Table("favorites").Where("user_id = ? AND car_id = ?", userID.String(), carID.String()).Count(&count).Error
 	return count > 0, err
+}
+
+func (r *postgresRepository) CountDailyPosts(ctx context.Context, userID uuid.UUID) (int64, error) {
+	var count int64
+	// PostgreSQL's CURRENT_DATE or we can pass explicit time.
+	// To be safe with timezones, let's assume we want "last 24 hours" OR "since midnight UTC".
+	// Requirement says "reset at midnight". simpler to use database logic:
+	// WHERE created_at >= current_date
+
+	err := r.db.WithContext(ctx).Model(&Car{}).
+		Where("seller_id = ? AND created_at >= CURRENT_DATE", userID.String()).
+		Count(&count).Error
+	return count, err
 }

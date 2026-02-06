@@ -19,6 +19,7 @@ type CreateCarRequest struct {
 	State        string  `form:"state" binding:"omitempty" example:"NY"`
 	Latitude     float64 `form:"latitude" binding:"omitempty" example:"40.7128"`
 	Longitude    float64 `form:"longitude" binding:"omitempty" example:"-74.0060"`
+	ChatOnly     bool    `form:"chat_only" example:"true"`
 }
 
 // UpdateCarRequest represents the payload for updating a listing
@@ -41,6 +42,7 @@ type UpdateCarRequest struct {
 	Latitude     float64 `form:"latitude" binding:"omitempty,latitude" example:"42.6526"`
 	Longitude    float64 `form:"longitude" binding:"omitempty,longitude" example:"-73.7562"`
 	Status       string  `form:"status" binding:"omitempty,oneof=active sold expired deleted" example:"active"`
+	ChatOnly     bool    `form:"chat_only" example:"false"`
 }
 
 // ListCarsQuery represents the query parameters for listing cars

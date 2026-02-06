@@ -206,6 +206,7 @@ func main() {
 		// Public listing routes
 		cars.GET("", listingHandler.ListListings)
 		cars.GET("/:id", listingHandler.GetListing)
+		cars.POST("/:id/view", listingHandler.IncrementView)
 
 		// Protected listing routes
 		protected := cars.Group("")

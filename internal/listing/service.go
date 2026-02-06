@@ -36,7 +36,10 @@ func (s *ListingService) CreateListing(ctx context.Context, userID uuid.UUID, re
 		return nil, err
 	}
 
-	// 2. (Rate limit removed - no posting limits)
+	// 2. Check daily rate limit (5 posts per day)
+	if err := s.checkRateLimit(ctx, userID); err != nil {
+		return nil, err
+	}
 
 	// 3. Generate car ID first (needed for image paths)
 	newCarID := uuid.New()
@@ -83,6 +86,7 @@ func (s *ListingService) CreateListing(ctx context.Context, userID uuid.UUID, re
 		Latitude:     req.Latitude,
 		Longitude:    req.Longitude,
 		Status:       CarStatusActive,
+		ChatOnly:     req.ChatOnly,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 		ExpiresAt:    now.AddDate(0, 0, 90), // 90 days expiry
@@ -340,21 +344,14 @@ func (s *ListingService) GetFavorites(ctx context.Context, userID uuid.UUID, pag
 // Helpers
 
 func (s *ListingService) checkRateLimit(ctx context.Context, userID uuid.UUID) error {
-	key := fmt.Sprintf("ratelimit:listings:%s", userID)
-
-	// Increment
-	count, err := s.cache.Incr(ctx, key).Result()
+	// Check against database count for today
+	count, err := s.repo.CountDailyPosts(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	// Set expiration on first increment
-	if count == 1 {
-		s.cache.Expire(ctx, key, 1*time.Hour)
-	}
-
-	if count > 5 {
-		return errors.New("rate limit exceeded: max 5 listings per hour")
+	if count >= 5 {
+		return errors.New("daily post limit reached: max 5 listings per day")
 	}
 	return nil
 }

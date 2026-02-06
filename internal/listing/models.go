@@ -51,6 +51,7 @@ type Car struct {
 	Longitude    float64        `json:"longitude" gorm:"-"` // Computed from PostGIS, not stored
 	Status       string         `json:"status" gorm:"column:status"`
 	IsFeatured   bool           `json:"is_featured" gorm:"column:is_featured"`
+	ChatOnly     bool           `json:"chat_only" gorm:"column:chat_only"`
 	ViewsCount   int            `json:"views_count" gorm:"column:views_count"`
 	CreatedAt    time.Time      `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt    time.Time      `json:"updated_at" gorm:"column:updated_at"`
@@ -60,4 +61,5 @@ type Car struct {
 	SellerName   string  `json:"seller_name,omitempty" gorm:"-"`
 	SellerPhoto  string  `json:"seller_photo,omitempty" gorm:"-"`
 	SellerRating float64 `json:"seller_rating,omitempty" gorm:"-"`
+	SellerPhone  string  `json:"seller_phone,omitempty" gorm:"-"`
 }

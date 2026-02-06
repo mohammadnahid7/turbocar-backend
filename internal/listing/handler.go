@@ -423,3 +423,25 @@ func (h *ListingHandler) TestImageUpload(c *gin.Context) {
 		"test_id":  testID,
 	})
 }
+
+// IncrementView handles incrementing view count
+// @Summary Increment view count
+// @Description Increment the view count for a car listing
+// @Tags listings
+// @Produce json
+// @Param id path string true "Car ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /api/cars/{id}/view [post]
+func (h *ListingHandler) IncrementView(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid car ID"})
+		return
+	}
+
+	h.service.incrementViewCount(c.Request.Context(), id)
+
+	c.JSON(http.StatusOK, gin.H{"message": "View incremented"})
+}

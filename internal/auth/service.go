@@ -291,10 +291,54 @@ func (s *Service) userToDTO(user *models.User) UserDTO {
 		Email:           user.Email,
 		Phone:           user.Phone,
 		FullName:        user.FullName,
+		Gender:          user.Gender,
+		DOB:             formatTime(user.DOB),
 		ProfilePhotoURL: user.ProfilePhotoURL,
 		IsVerified:      user.IsVerified,
 		IsDealer:        user.IsDealer,
 	}
+}
+
+func formatTime(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format("2006-01-02")
+	return &s
+}
+
+// UpdateProfile updates the user's profile
+func (s *Service) UpdateProfile(ctx context.Context, userID string, req *UpdateProfileRequest) (*UserDTO, error) {
+	// Get user
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update fields if provided
+	if req.FullName != nil {
+		user.FullName = utils.SanitizeString(*req.FullName)
+	}
+	if req.Gender != nil {
+		user.Gender = req.Gender
+	}
+	if req.DOB != nil {
+		dob, err := time.Parse("2006-01-02", *req.DOB)
+		if err == nil {
+			user.DOB = &dob
+		}
+	}
+	if req.ProfilePhotoURL != nil {
+		user.ProfilePhotoURL = req.ProfilePhotoURL
+	}
+
+	// Save updates
+	if err := s.repo.UpdateUser(user); err != nil {
+		return nil, err
+	}
+
+	dto := s.userToDTO(user)
+	return &dto, nil
 }
 
 // ChangePassword changes the user's password

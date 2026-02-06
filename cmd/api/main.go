@@ -171,6 +171,7 @@ func main() {
 		{
 			protected.POST("/logout", authHandler.Logout)
 			protected.GET("/me", authHandler.GetCurrentUser)
+			protected.PUT("/me", authHandler.UpdateProfile)
 			protected.POST("/change-password", authHandler.ChangePassword)
 		}
 	}
@@ -236,6 +237,9 @@ func main() {
 		protectedListings.GET("/my-listings", listingHandler.GetMyListings)
 		protectedListings.GET("/favorites", listingHandler.GetFavorites)
 		protectedListings.POST("/:id/favorite", listingHandler.ToggleFavorite)
+
+		// Generic Upload Endpoint (Protected)
+		api.POST("/upload", auth.AuthMiddleware(cfg), listingHandler.UploadImage)
 	}
 
 	// Start server

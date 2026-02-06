@@ -19,7 +19,7 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateAccessToken generates a JWT access token with 15 minutes expiry
+// GenerateAccessToken generates a JWT access token with 5 years expiry
 func GenerateAccessToken(userID, email, secret string) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
@@ -35,7 +35,7 @@ func GenerateAccessToken(userID, email, secret string) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-// GenerateRefreshToken generates a JWT refresh token with 30 days expiry
+// GenerateRefreshToken generates a JWT refresh token with 5 years expiry
 func GenerateRefreshToken(userID, secret string) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,

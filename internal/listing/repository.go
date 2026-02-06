@@ -36,20 +36,21 @@ func NewRepository(db *gorm.DB) ListingRepository {
 }
 
 func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
-	// Use raw SQL to properly handle PostGIS coordinates and PostgreSQL ENUM types
+	// Use raw SQL to properly handle PostgreSQL ENUM types
 	// If lat/long are 0,0 (default), store NULL so map won't show
 	query := `
 		INSERT INTO cars (
 			id, seller_id, title, description, make, model, year, mileage, price,
 			condition, transmission, fuel_type, color, vin, images, city, state,
-			coordinates, status, is_featured, views_count, created_at, updated_at, expires_at
+			latitude, longitude, status, is_featured, views_count, created_at, updated_at, expires_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9,
 			NULLIF($10, '')::car_condition,
 			NULLIF($11, '')::car_transmission,
 			$12::car_fuel_type,
 			NULLIF($13, ''), NULLIF($14, ''), $15, $16, NULLIF($17, ''),
-			CASE WHEN $18 = 0 AND $19 = 0 THEN NULL ELSE ST_SetSRID(ST_MakePoint($18, $19), 4326) END,
+			CASE WHEN $18 = 0 THEN NULL ELSE $18 END,
+			CASE WHEN $19 = 0 THEN NULL ELSE $19 END,
 			$20::car_status, $21, $22, $23, $24, $25
 		)
 	`
@@ -58,7 +59,7 @@ func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
 		car.Make, car.Model, car.Year, car.Mileage, car.Price,
 		car.Condition, car.Transmission, car.FuelType, car.Color, car.VIN,
 		car.Images, car.City, car.State,
-		car.Longitude, car.Latitude, // ST_MakePoint takes (x=lon, y=lat)
+		car.Latitude, car.Longitude,
 		car.Status, car.IsFeatured, car.ViewsCount,
 		car.CreatedAt, car.UpdatedAt, car.ExpiresAt,
 	).Error
@@ -68,8 +69,6 @@ func (r *postgresRepository) FindByID(ctx context.Context, id uuid.UUID) (*Car, 
 	var car Car
 	query := `
 		SELECT c.*,
-			   ST_X(c.coordinates::geometry) as longitude,
-			   ST_Y(c.coordinates::geometry) as latitude,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo
 		FROM cars c
@@ -153,8 +152,6 @@ func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Ca
 	// Final Select - Extract lat/long from coordinates
 	selectQuery := `
 		SELECT c.*,
-			   ST_X(c.coordinates::geometry) as longitude,
-			   ST_Y(c.coordinates::geometry) as latitude,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo 
 	` + baseQuery + fmt.Sprintf(" ORDER BY %s, c.id DESC LIMIT ? OFFSET ?", order)
@@ -220,8 +217,6 @@ func (r *postgresRepository) GetFavorites(ctx context.Context, userID uuid.UUID,
 
 	query := `
 		SELECT c.*,
-			   ST_X(c.coordinates::geometry) as longitude,
-			   ST_Y(c.coordinates::geometry) as latitude,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo
 		FROM favorites f

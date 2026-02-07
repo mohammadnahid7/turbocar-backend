@@ -9,8 +9,9 @@ import (
 // Conversation represents a chat room between users
 type Conversation struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time              `json:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at"`
+	Metadata  map[string]interface{} `json:"metadata" gorm:"type:jsonb"`
 
 	// Relations
 	Participants []ConversationParticipant `json:"participants,omitempty" gorm:"foreignKey:ConversationID"`

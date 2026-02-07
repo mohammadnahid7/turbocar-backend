@@ -18,8 +18,10 @@ func NewRepository(db *gorm.DB) *Repository {
 // --- Conversation Operations ---
 
 // CreateConversation creates a new conversation with participants
-func (r *Repository) CreateConversation(participantIDs []uuid.UUID) (*Conversation, error) {
-	conv := &Conversation{}
+func (r *Repository) CreateConversation(participantIDs []uuid.UUID, metadata map[string]interface{}) (*Conversation, error) {
+	conv := &Conversation{
+		Metadata: metadata,
+	}
 
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(conv).Error; err != nil {

@@ -132,7 +132,7 @@ func (h *Handler) StartConversation(c *gin.Context) {
 	// Include the current user in participants
 	participantIDs := append(req.ParticipantIDs, userID)
 
-	conversation, err := h.service.StartConversation(participantIDs)
+	conversation, err := h.service.StartConversation(participantIDs, req.Context)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create conversation"})
 		return

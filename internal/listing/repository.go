@@ -69,24 +69,41 @@ func (r *postgresRepository) Create(ctx context.Context, car *Car) error {
 }
 
 func (r *postgresRepository) FindByID(ctx context.Context, id uuid.UUID) (*Car, error) {
-	var car Car
+	var result struct {
+		Car
+		SellerName   string  `gorm:"column:seller_name"`
+		SellerPhoto  string  `gorm:"column:seller_photo"`
+		SellerPhone  string  `gorm:"column:seller_phone"`
+		SellerRating float64 `gorm:"column:seller_rating"`
+	}
+
 	query := `
 		SELECT c.*,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo,
-			   u.phone as seller_phone
+			   u.phone as seller_phone,
+			   u.rating as seller_rating
 		FROM cars c
 		LEFT JOIN users u ON c.seller_id = u.id
 		WHERE c.id = ? AND c.status != 'deleted'
 	`
-	err := r.db.WithContext(ctx).Raw(query, id.String()).Scan(&car).Error
+	err := r.db.WithContext(ctx).Raw(query, id.String()).Scan(&result).Error
 	if err != nil {
 		return nil, err
 	}
-	if car.ID == uuid.Nil {
+	if result.Car.ID == uuid.Nil {
 		return nil, gorm.ErrRecordNotFound
 	}
-	return &car, nil
+
+	result.Car.Seller = &SellerInfo{
+		ID:           result.Car.SellerID,
+		Name:         result.SellerName,
+		ProfilePhoto: result.SellerPhoto,
+		Phone:        result.SellerPhone,
+		Rating:       result.SellerRating,
+	}
+
+	return &result.Car, nil
 }
 
 func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Car, int64, error) {
@@ -158,13 +175,36 @@ func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Ca
 		SELECT c.*,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo,
-			   u.phone as seller_phone
+			   u.phone as seller_phone,
+			   u.rating as seller_rating
 	` + baseQuery + fmt.Sprintf(" ORDER BY %s, c.id DESC LIMIT ? OFFSET ?", order)
 
 	args = append(args, q.Limit, offset)
 
-	if err := r.db.WithContext(ctx).Raw(selectQuery, args...).Scan(&cars).Error; err != nil {
+	// Use anonymous struct slice to scan
+	var results []struct {
+		Car
+		SellerName   string  `gorm:"column:seller_name"`
+		SellerPhoto  string  `gorm:"column:seller_photo"`
+		SellerPhone  string  `gorm:"column:seller_phone"`
+		SellerRating float64 `gorm:"column:seller_rating"`
+	}
+
+	if err := r.db.WithContext(ctx).Raw(selectQuery, args...).Scan(&results).Error; err != nil {
 		return nil, 0, err
+	}
+
+	// Map back to []Car
+	cars = make([]Car, len(results))
+	for i, res := range results {
+		cars[i] = res.Car
+		cars[i].Seller = &SellerInfo{
+			ID:           res.Car.SellerID,
+			Name:         res.SellerName,
+			ProfilePhoto: res.SellerPhoto,
+			Phone:        res.SellerPhone,
+			Rating:       res.SellerRating,
+		}
 	}
 
 	return cars, total, nil

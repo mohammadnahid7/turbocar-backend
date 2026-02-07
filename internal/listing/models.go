@@ -28,6 +28,15 @@ const (
 	FuelTypeHybrid   = "hybrid"
 )
 
+// SellerInfo represents the seller details nested in a car listing
+type SellerInfo struct {
+	ID           uuid.UUID `json:"id" gorm:"-"`
+	Name         string    `json:"name" gorm:"-"`
+	ProfilePhoto string    `json:"profile_photo" gorm:"-"`
+	Phone        string    `json:"phone" gorm:"-"`
+	Rating       float64   `json:"rating" gorm:"-"`
+}
+
 // Car represents the car listing model in the database
 type Car struct {
 	ID           uuid.UUID      `json:"id" db:"id"`
@@ -58,8 +67,5 @@ type Car struct {
 	ExpiresAt    time.Time      `json:"expires_at" gorm:"column:expires_at"`
 
 	// Joins/Extras - populated via JOIN queries, not stored in cars table
-	SellerName   string  `json:"seller_name,omitempty" gorm:"-"`
-	SellerPhoto  string  `json:"seller_photo,omitempty" gorm:"-"`
-	SellerRating float64 `json:"seller_rating,omitempty" gorm:"-"`
-	SellerPhone  string  `json:"seller_phone,omitempty" gorm:"-"`
+	Seller *SellerInfo `json:"seller,omitempty" gorm:"-"`
 }

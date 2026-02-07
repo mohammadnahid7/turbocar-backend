@@ -115,7 +115,7 @@ func (h *Handler) GetConversations(c *gin.Context) {
 // @Tags Chat
 // @Security BearerAuth
 // @Param request body StartConversationRequest true "Participant IDs"
-// @Success 201 {object} Conversation
+// @Success 201 {object} ConversationResponse
 // @Router /chat/conversations [post]
 func (h *Handler) StartConversation(c *gin.Context) {
 	userID := h.getUserID(c)
@@ -138,7 +138,26 @@ func (h *Handler) StartConversation(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, conversation)
+	// Build participant response list
+	participants := make([]ParticipantResponse, len(conversation.Participants))
+	for i, p := range conversation.Participants {
+		participants[i] = ParticipantResponse{
+			UserID: p.UserID,
+			// FullName and AvatarURL would need user lookup
+		}
+	}
+
+	// Return properly formatted response
+	response := ConversationResponse{
+		ID:           conversation.ID,
+		Participants: participants,
+		UnreadCount:  0,
+		CreatedAt:    conversation.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    conversation.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Metadata:     conversation.Metadata,
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // GetMessages returns message history for a conversation

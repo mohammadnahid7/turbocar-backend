@@ -40,6 +40,12 @@ func (r *Repository) CreateConversation(participantIDs []uuid.UUID, metadata map
 		return nil
 	})
 
+	if err != nil {
+		return nil, err
+	}
+
+	// Reload with participants
+	err = r.db.Preload("Participants").First(conv, "id = ?", conv.ID).Error
 	return conv, err
 }
 

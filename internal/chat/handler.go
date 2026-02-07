@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -115,16 +116,19 @@ func (h *Handler) GetConversations(c *gin.Context) {
 // @Tags Chat
 // @Security BearerAuth
 // @Param request body StartConversationRequest true "Participant IDs"
-// @Success 201 {object} ConversationResponse
+// @Success 201 {object} Conversation
 // @Router /chat/conversations [post]
 func (h *Handler) StartConversation(c *gin.Context) {
 	userID := h.getUserID(c)
+	log.Println("User ID: ", userID)
 	if userID == uuid.Nil {
 		return
 	}
 
+	// Parse request body
 	var req StartConversationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Error binding JSON: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -132,32 +136,14 @@ func (h *Handler) StartConversation(c *gin.Context) {
 	// Include the current user in participants
 	participantIDs := append(req.ParticipantIDs, userID)
 
-	conversation, err := h.service.StartConversation(participantIDs, req.Context)
+	conversation, err := h.service.StartConversation(participantIDs, req.CarID, req.CarTitle, req.Context)
 	if err != nil {
+		log.Printf("Error creating conversation: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create conversation"})
 		return
 	}
 
-	// Build participant response list
-	participants := make([]ParticipantResponse, len(conversation.Participants))
-	for i, p := range conversation.Participants {
-		participants[i] = ParticipantResponse{
-			UserID: p.UserID,
-			// FullName and AvatarURL would need user lookup
-		}
-	}
-
-	// Return properly formatted response
-	response := ConversationResponse{
-		ID:           conversation.ID,
-		Participants: participants,
-		UnreadCount:  0,
-		CreatedAt:    conversation.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:    conversation.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		Metadata:     conversation.Metadata,
-	}
-
-	c.JSON(http.StatusCreated, response)
+	c.JSON(http.StatusCreated, conversation)
 }
 
 // GetMessages returns message history for a conversation

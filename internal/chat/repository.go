@@ -17,10 +17,13 @@ func NewRepository(db *gorm.DB) *Repository {
 
 // --- Conversation Operations ---
 
-// CreateConversation creates a new conversation with participants
-func (r *Repository) CreateConversation(participantIDs []uuid.UUID, metadata map[string]interface{}) (*Conversation, error) {
+// CreateConversation creates a new conversation with participants and car context
+func (r *Repository) CreateConversation(participantIDs []uuid.UUID, carID *uuid.UUID, carTitle string, carSellerID *uuid.UUID, metadata Metadata) (*Conversation, error) {
 	conv := &Conversation{
-		Metadata: metadata,
+		CarID:       carID,
+		CarTitle:    carTitle,
+		CarSellerID: carSellerID,
+		Metadata:    metadata,
 	}
 
 	err := r.db.Transaction(func(tx *gorm.DB) error {
@@ -70,8 +73,8 @@ func (r *Repository) GetUserConversations(userID uuid.UUID) ([]Conversation, err
 	return conversations, err
 }
 
-// GetConversationBetweenUsers finds existing conversation between users
-func (r *Repository) GetConversationBetweenUsers(userIDs []uuid.UUID) (*Conversation, error) {
+// GetConversationBetweenUsers finds existing conversation between users for a specific car
+func (r *Repository) GetConversationBetweenUsers(userIDs []uuid.UUID, carID *uuid.UUID) (*Conversation, error) {
 	var conv Conversation
 
 	// Find conversation where ALL specified users are participants
@@ -81,9 +84,14 @@ func (r *Repository) GetConversationBetweenUsers(userIDs []uuid.UUID) (*Conversa
 		Group("conversation_id").
 		Having("COUNT(DISTINCT user_id) = ?", len(userIDs))
 
-	err := r.db.
-		Where("id IN (?)", subquery).
-		First(&conv).Error
+	query := r.db.Where("id IN (?)", subquery)
+
+	// If carID is provided, also filter by car_id
+	if carID != nil {
+		query = query.Where("car_id = ?", *carID)
+	}
+
+	err := query.Preload("Participants").First(&conv).Error
 
 	return &conv, err
 }

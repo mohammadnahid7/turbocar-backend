@@ -81,8 +81,7 @@ func (r *postgresRepository) FindByID(ctx context.Context, id uuid.UUID) (*Car, 
 		SELECT c.*,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo,
-			   u.phone as seller_phone,
-			   u.rating as seller_rating
+			   u.phone as seller_phone
 		FROM cars c
 		LEFT JOIN users u ON c.seller_id = u.id
 		WHERE c.id = ? AND c.status != 'deleted'
@@ -100,7 +99,6 @@ func (r *postgresRepository) FindByID(ctx context.Context, id uuid.UUID) (*Car, 
 		Name:         result.SellerName,
 		ProfilePhoto: result.SellerPhoto,
 		Phone:        result.SellerPhone,
-		Rating:       result.SellerRating,
 	}
 
 	return &result.Car, nil
@@ -175,8 +173,7 @@ func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Ca
 		SELECT c.*,
 			   u.full_name as seller_name,
 			   u.profile_photo_url as seller_photo,
-			   u.phone as seller_phone,
-			   u.rating as seller_rating
+			   u.phone as seller_phone
 	` + baseQuery + fmt.Sprintf(" ORDER BY %s, c.id DESC LIMIT ? OFFSET ?", order)
 
 	args = append(args, q.Limit, offset)
@@ -184,10 +181,9 @@ func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Ca
 	// Use anonymous struct slice to scan
 	var results []struct {
 		Car
-		SellerName   string  `gorm:"column:seller_name"`
-		SellerPhoto  string  `gorm:"column:seller_photo"`
-		SellerPhone  string  `gorm:"column:seller_phone"`
-		SellerRating float64 `gorm:"column:seller_rating"`
+		SellerName  string `gorm:"column:seller_name"`
+		SellerPhoto string `gorm:"column:seller_photo"`
+		SellerPhone string `gorm:"column:seller_phone"`
 	}
 
 	if err := r.db.WithContext(ctx).Raw(selectQuery, args...).Scan(&results).Error; err != nil {
@@ -203,7 +199,6 @@ func (r *postgresRepository) FindAll(ctx context.Context, q ListCarsQuery) ([]Ca
 			Name:         res.SellerName,
 			ProfilePhoto: res.SellerPhoto,
 			Phone:        res.SellerPhone,
-			Rating:       res.SellerRating,
 		}
 	}
 

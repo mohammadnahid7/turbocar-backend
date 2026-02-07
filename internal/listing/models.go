@@ -1,5 +1,6 @@
 package listing
 
+// sda
 import (
 	"time"
 
@@ -34,7 +35,6 @@ type SellerInfo struct {
 	Name         string    `json:"name" gorm:"-"`
 	ProfilePhoto string    `json:"profile_photo" gorm:"-"`
 	Phone        string    `json:"phone" gorm:"-"`
-	Rating       float64   `json:"rating" gorm:"-"`
 }
 
 // Car represents the car listing model in the database

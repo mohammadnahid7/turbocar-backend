@@ -48,10 +48,12 @@ CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation
 CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
 
 -- Trigger to update updated_at on conversations
+DROP TRIGGER IF EXISTS update_conversations_updated_at ON conversations;
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger to update updated_at on user_devices
+DROP TRIGGER IF EXISTS update_user_devices_updated_at ON user_devices;
 CREATE TRIGGER update_user_devices_updated_at BEFORE UPDATE ON user_devices
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

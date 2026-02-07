@@ -28,6 +28,10 @@ type Config struct {
 	R2SecretAccessKey string
 	R2BucketName      string
 	R2PublicURL       string // Optional custom domain
+
+	// Firebase Cloud Messaging
+	FirebaseCredentialsJSON string // JSON string of service account credentials
+	FirebaseCredentialsPath string // Path to service account JSON file
 }
 
 // Load reads configuration from environment variables
@@ -69,6 +73,10 @@ func Load() (*Config, error) {
 		R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
 		R2BucketName:      getEnv("R2_BUCKET_NAME", ""),
 		R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
+
+		// Firebase Configuration
+		FirebaseCredentialsJSON: getEnv("FIREBASE_CREDENTIALS_JSON", ""),
+		FirebaseCredentialsPath: getEnv("FIREBASE_CREDENTIALS_PATH", ""),
 	}
 
 	// Validate required fields

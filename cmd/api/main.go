@@ -9,10 +9,12 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/yourusername/car-reselling-backend/internal/auth"
+	"github.com/yourusername/car-reselling-backend/internal/chat"
 	"github.com/yourusername/car-reselling-backend/internal/config"
 	"github.com/yourusername/car-reselling-backend/internal/database"
 	"github.com/yourusername/car-reselling-backend/internal/listing"
 	"github.com/yourusername/car-reselling-backend/internal/models"
+	"github.com/yourusername/car-reselling-backend/internal/notification"
 
 	_ "github.com/yourusername/car-reselling-backend/docs" // Swagger docs
 )
@@ -241,6 +243,29 @@ func main() {
 		// Generic Upload Endpoint (Protected)
 		api.POST("/upload", auth.AuthMiddleware(cfg), listingHandler.UploadImage)
 	}
+
+	// Initialize notification service (for push notifications)
+	var notificationService chat.NotificationSender
+	notifService, err := notification.NewService(cfg)
+	if err != nil {
+		log.Printf("⚠ FCM/Notification service initialization failed: %v", err)
+		log.Println("  Push notifications will not work until Firebase is configured")
+		notificationService = nil
+	} else {
+		notificationService = notifService
+	}
+
+	// Initialize chat components
+	chatRepo := chat.NewRepository(database.DB)
+	chatService := chat.NewService(chatRepo, notificationService)
+	chatHub := chat.NewHub(chatService)
+	chatHandler := chat.NewHandler(chatHub, chatService)
+
+	// Start WebSocket Hub in background
+	go chatHub.Run()
+
+	// Register chat routes
+	chatHandler.RegisterRoutes(api, auth.AuthMiddleware(cfg))
 
 	// Start server
 	serverAddr := ":" + cfg.ServerPort

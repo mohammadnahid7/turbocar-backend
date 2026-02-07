@@ -39,3 +39,6 @@ car-reselling-backend
 # Logs
 *.log
 
+# Firebase Service Account (contains secrets)
+firebase-service-account.json
+*-firebase-adminsdk-*.json

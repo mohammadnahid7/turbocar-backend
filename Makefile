@@ -37,6 +37,10 @@ docker-down:
 # Run database migrations
 migrate:
 	psql -U postgres -d car_reselling_db -f migrations/001_create_users_table.sql
+	psql -U postgres -d car_reselling_db -f migrations/002_create_listings_tables.sql
+	psql -U postgres -d car_reselling_db -f migrations/003_make_fields_optional.sql
+	psql -U postgres -d car_reselling_db -f migrations/004_add_chat_only_column.sql
+	psql -U postgres -d car_reselling_db -f migrations/005_create_chat_tables.sql
 
 # Format code
 fmt:

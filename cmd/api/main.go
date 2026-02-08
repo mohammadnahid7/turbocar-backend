@@ -98,14 +98,12 @@ func main() {
 
 	// CORS middleware
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3000"} // Add your frontend/swagger origins here
+	config.AllowOrigins = []string{"*"} // Allow all origins for mobile app
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "Upgrade", "Connection"}
 	config.ExposeHeaders = []string{"Content-Length"}
-	config.AllowCredentials = true
-	config.AllowOriginFunc = func(origin string) bool {
-		return cfg.Environment == "development" // Allow all origins in development
-	}
+	config.AllowCredentials = false // Must be false when AllowOrigins is "*"
+	config.AllowAllOrigins = true   // Allow all origins for mobile apps and WebSockets
 	r.Use(cors.New(config))
 
 	// Rate limiting (exclude Swagger UI and health check)

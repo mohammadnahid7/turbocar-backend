@@ -105,14 +105,15 @@ func main() {
 	config.AllowCredentials = false
 	r.Use(cors.New(config))
 
-	// Rate limiting (exclude Swagger UI and health check)
+	// Rate limiting (exclude Swagger UI, health check, and WebSocket)
 	r.Use(func(c *gin.Context) {
 		path := c.Request.URL.Path
-		// Skip rate limiting for Swagger UI and health check
+		// Skip rate limiting for Swagger UI, health check, and WebSocket
 		if path == "/health" ||
 			path == "/swagger" ||
 			path == "/swagger/" ||
-			(len(path) > 9 && path[:9] == "/swagger/") {
+			(len(path) > 9 && path[:9] == "/swagger/") ||
+			path == "/api/chat/ws" { // WebSocket endpoint excluded
 			c.Next()
 			return
 		}

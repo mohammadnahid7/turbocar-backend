@@ -17,22 +17,29 @@ import (
 // AuthMiddleware validates JWT tokens and sets user context
 func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var token string
+
+		// First, try Authorization header
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			// Extract token from "Bearer <token>"
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+
+		// If no header token, try query parameter (for WebSocket connections)
+		if token == "" {
+			token = c.Query("token")
+		}
+
+		// If still no token, unauthorized
+		if token == "" {
 			appErrors.HandleError(c, appErrors.ErrUnauthorized)
 			c.Abort()
 			return
 		}
-
-		// Extract token from "Bearer <token>"
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			appErrors.HandleError(c, appErrors.ErrUnauthorized)
-			c.Abort()
-			return
-		}
-
-		token := parts[1]
 
 		// Validate token
 		claims, err := utils.ValidateToken(token, cfg.JWTSecret)

@@ -96,14 +96,13 @@ func main() {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 
-	// CORS middleware
+	// CORS middleware - allow all origins for mobile apps
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"} // Allow all origins for mobile app
+	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "Upgrade", "Connection"}
 	config.ExposeHeaders = []string{"Content-Length"}
-	config.AllowCredentials = false // Must be false when AllowOrigins is "*"
-	config.AllowAllOrigins = true   // Allow all origins for mobile apps and WebSockets
+	config.AllowCredentials = false
 	r.Use(cors.New(config))
 
 	// Rate limiting (exclude Swagger UI and health check)

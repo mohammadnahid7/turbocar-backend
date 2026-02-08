@@ -34,6 +34,26 @@ docker-up:
 docker-down:
 	docker-compose down
 
+# Development with hot reload (uses docker-compose.dev.yml)
+dev-up:
+	docker-compose -f docker-compose.dev.yml up --build
+
+# Development in background
+dev-up-d:
+	docker-compose -f docker-compose.dev.yml up -d --build
+
+# Stop development services
+dev-down:
+	docker-compose -f docker-compose.dev.yml down
+
+# View development logs
+dev-logs:
+	docker-compose -f docker-compose.dev.yml logs -f api
+
+# Restart just the API service (useful after dependency changes)
+dev-restart:
+	docker-compose -f docker-compose.dev.yml restart api
+
 # Run database migrations
 migrate:
 	psql -U postgres -d car_reselling_db -f migrations/001_create_users_table.sql

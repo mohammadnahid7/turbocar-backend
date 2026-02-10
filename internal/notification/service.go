@@ -277,3 +277,27 @@ func (s *Service) SendToToken(token, title, body string, data map[string]string)
 
 	return nil
 }
+
+// CreateInternalNotification creates an internal notification without sending a push notification (but saves to DB)
+func (s *Service) CreateInternalNotification(ctx context.Context, userID uuid.UUID, title, body, notifType string, data map[string]string) error {
+	if s.db == nil {
+		return fmt.Errorf("database connection not set")
+	}
+
+	// Convert map[string]string to map[string]any for JSONB
+	jsonInitData := make(map[string]any)
+	for k, v := range data {
+		jsonInitData[k] = v
+	}
+
+	notification := Notification{
+		UserID: userID,
+		Type:   notifType,
+		Title:  title,
+		Body:   body,
+		Data:   jsonInitData,
+		IsRead: false,
+	}
+
+	return s.db.WithContext(ctx).Create(&notification).Error
+}

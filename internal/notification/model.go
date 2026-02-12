@@ -11,7 +11,7 @@ type Notification struct {
 	ID        uuid.UUID              `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	UserID    uuid.UUID              `json:"user_id" gorm:"type:uuid;index;not null"`
 	Title     string                 `json:"title" gorm:"type:varchar(255);not null"`
-	Message   string                 `json:"message" gorm:"type:text;not null"`
+	Body      string                 `json:"body" gorm:"type:text;not null"`
 	Type      string                 `json:"type" gorm:"type:varchar(50);default:'general'"` // price_change, general, etc.
 	ImageURL  string                 `json:"image_url,omitempty" gorm:"type:varchar(512)"`
 	Data      map[string]interface{} `json:"data,omitempty" gorm:"type:jsonb;serializer:json"`
@@ -29,7 +29,7 @@ func (Notification) TableName() string {
 type NotificationResponse struct {
 	ID        uuid.UUID              `json:"id"`
 	Title     string                 `json:"title"`
-	Message   string                 `json:"message"`
+	Body      string                 `json:"body"`
 	Type      string                 `json:"type"`
 	ImageURL  string                 `json:"image_url,omitempty"`
 	Data      map[string]interface{} `json:"data,omitempty"`
@@ -42,7 +42,7 @@ func (n *Notification) ToResponse() NotificationResponse {
 	return NotificationResponse{
 		ID:        n.ID,
 		Title:     n.Title,
-		Message:   n.Message,
+		Body:      n.Body,
 		Type:      n.Type,
 		ImageURL:  n.ImageURL,
 		Data:      n.Data,

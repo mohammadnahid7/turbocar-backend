@@ -38,13 +38,13 @@ func NewService(repo *Repository, wsSender WebSocketSender, fcmService FCMServic
 }
 
 // CreateAndSend creates a notification and sends it via WebSocket and/or FCM
-func (s *Service) CreateAndSend(ctx context.Context, userID uuid.UUID, title, message, notifType, imageURL string, data map[string]interface{}) (*Notification, error) {
+func (s *Service) CreateAndSend(ctx context.Context, userID uuid.UUID, title, body, notifType, imageURL string, data map[string]interface{}) (*Notification, error) {
 	// 1. Create notification object
 	notification := &Notification{
 		ID:        uuid.New(),
 		UserID:    userID,
 		Title:     title,
-		Message:   message,
+		Body:      body,
 		Type:      notifType,
 		ImageURL:  imageURL,
 		Data:      data,
@@ -64,7 +64,7 @@ func (s *Service) CreateAndSend(ctx context.Context, userID uuid.UUID, title, me
 		notificationData := map[string]interface{}{
 			"id":         notification.ID,
 			"title":      notification.Title,
-			"message":    notification.Message,
+			"body":       notification.Body,
 			"type":       notification.Type,
 			"image_url":  notification.ImageURL,
 			"data":       notification.Data,
@@ -83,7 +83,7 @@ func (s *Service) CreateAndSend(ctx context.Context, userID uuid.UUID, title, me
 	// 4. Send via FCM if user is not online via WebSocket (or always for mobile background)
 	// According to requirements: "when offline, show notification using FCM"
 	if s.fcmService != nil && !wsSent {
-		go s.sendFCMNotification(userID, title, message, notifType, data)
+		go s.sendFCMNotification(userID, title, body, notifType, data)
 	}
 
 	return notification, nil
@@ -112,9 +112,9 @@ func (s *Service) sendFCMNotification(userID uuid.UUID, title, body, notifType s
 }
 
 // CreateAndSendBulk creates and sends notifications to multiple users
-func (s *Service) CreateAndSendBulk(ctx context.Context, userIDs []uuid.UUID, title, message, notifType, imageURL string, data map[string]interface{}) error {
+func (s *Service) CreateAndSendBulk(ctx context.Context, userIDs []uuid.UUID, title, body, notifType, imageURL string, data map[string]interface{}) error {
 	for _, userID := range userIDs {
-		_, err := s.CreateAndSend(ctx, userID, title, message, notifType, imageURL, data)
+		_, err := s.CreateAndSend(ctx, userID, title, body, notifType, imageURL, data)
 		if err != nil {
 			log.Printf("Failed to create notification for user %s: %v", userID, err)
 			// Continue with other users

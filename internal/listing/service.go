@@ -22,8 +22,8 @@ type NotifierService interface {
 
 // NotificationService is an interface for the new notification system
 type NotificationService interface {
-	CreateAndSend(ctx context.Context, userID uuid.UUID, title, message, notifType, imageURL string, data map[string]interface{}) (*notification.Notification, error)
-	CreateAndSendBulk(ctx context.Context, userIDs []uuid.UUID, title, message, notifType, imageURL string, data map[string]interface{}) error
+	CreateAndSend(ctx context.Context, userID uuid.UUID, title, body, notifType, imageURL string, data map[string]interface{}) (*notification.Notification, error)
+	CreateAndSendBulk(ctx context.Context, userIDs []uuid.UUID, title, body, notifType, imageURL string, data map[string]interface{}) error
 }
 
 // ListingService struct

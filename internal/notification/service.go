@@ -14,10 +14,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// WebSocketBroadcaster interface for sending real-time notifications via WebSocket
+type WebSocketBroadcaster interface {
+	SendNotification(userID uuid.UUID, notificationID string, notificationType string, title string, body string, data map[string]interface{}, createdAt time.Time) error
+}
+
 // Service handles push notifications via Firebase Cloud Messaging
 type Service struct {
-	client *messaging.Client
-	db     *gorm.DB
+	client        *messaging.Client
+	db            *gorm.DB
+	wsBroadcaster WebSocketBroadcaster
 }
 
 // NewService creates a new notification service
@@ -70,6 +76,11 @@ type Notification struct {
 // SetDB sets the database connection
 func (s *Service) SetDB(db *gorm.DB) {
 	s.db = db
+}
+
+// SetWebSocketBroadcaster sets the WebSocket broadcaster for real-time notifications
+func (s *Service) SetWebSocketBroadcaster(broadcaster WebSocketBroadcaster) {
+	s.wsBroadcaster = broadcaster
 }
 
 // Create saves a notification to the database
@@ -141,51 +152,68 @@ func (s *Service) MarkAllAsRead(ctx context.Context, userID uuid.UUID) error {
 		Update("is_read", true).Error
 }
 
-// SendToUsers sends a notification to multiple users and persists it
+// SendToUsers sends a notification to multiple users via FCM, WebSocket, and persists to DB
 func (s *Service) SendToUsers(userIDs []uuid.UUID, title, body string, data map[string]string) error {
 	ctx := context.Background()
 
-	// 1. Persist notifications to database
-	if s.db != nil {
-		// Convert map[string]string to map[string]any for JSONB
-		jsonInitData := make(map[string]any)
-		for k, v := range data {
-			jsonInitData[k] = v
-		}
+	// Prepare notification data for DB
+	jsonInitData := make(map[string]any)
+	for k, v := range data {
+		jsonInitData[k] = v
+	}
 
-		// Batch insert is more efficient
-		notifications := make([]Notification, len(userIDs))
-		for i, uid := range userIDs {
-			notifications[i] = Notification{
-				UserID: uid,
-				Type:   data["type"], // Assume 'type' is always present in data
-				Title:  title,
-				Body:   body,
-				Data:   jsonInitData,
-				IsRead: false,
-			}
-			// If 'type' is missing, default to 'system'
-			if notifications[i].Type == "" {
-				notifications[i].Type = "system"
-			}
-		}
+	notificationType := data["type"]
+	if notificationType == "" {
+		notificationType = "system"
+	}
 
-		if err := s.db.WithContext(ctx).Create(&notifications).Error; err != nil {
-			log.Printf("Error persisting notifications: %v", err)
-			// Continue to send push even if persistence fails?
-			// Ideally we want both, but let's log and proceed.
+	// 1. Persist notifications to database and send via WebSocket
+	notifications := make([]Notification, len(userIDs))
+	for i, uid := range userIDs {
+		notifications[i] = Notification{
+			UserID: uid,
+			Type:   notificationType,
+			Title:  title,
+			Body:   body,
+			Data:   jsonInitData,
+			IsRead: false,
 		}
 	}
 
+	if s.db != nil {
+		if err := s.db.WithContext(ctx).Create(&notifications).Error; err != nil {
+			log.Printf("Error persisting notifications: %v", err)
+			// Continue to send push even if persistence fails
+		}
+	}
+
+	// 2. Send via WebSocket for real-time delivery (fire and forget)
+	if s.wsBroadcaster != nil {
+		for i := range notifications {
+			go func(n Notification) {
+				// Convert map[string]any to map[string]interface{}
+				data := make(map[string]interface{})
+				for k, v := range n.Data {
+					data[k] = v
+				}
+				if err := s.wsBroadcaster.SendNotification(n.UserID, n.ID.String(), n.Type, n.Title, n.Body, data, n.CreatedAt); err != nil {
+					log.Printf("Failed to send WebSocket notification to user %s: %v", n.UserID, err)
+				}
+			}(notifications[i])
+		}
+	}
+
+	// 3. Send via FCM for push notifications (background/terminated apps)
 	if s.client == nil {
-		return fmt.Errorf("FCM client not initialized")
+		log.Printf("FCM client not initialized, skipping push notifications")
+		return nil
 	}
 
 	if s.db == nil {
 		return fmt.Errorf("database connection not set")
 	}
 
-	// 2. Get FCM tokens for these users
+	// 4. Get FCM tokens for these users
 	var tokens []string
 	err := s.db.WithContext(ctx).Table("user_devices").
 		Select("fcm_token").
@@ -200,7 +228,7 @@ func (s *Service) SendToUsers(userIDs []uuid.UUID, title, body string, data map[
 		return nil
 	}
 
-	// 3. Send multicast message
+	// 5. Send multicast message
 	message := &messaging.MulticastMessage{
 		Tokens: tokens,
 		Notification: &messaging.Notification{

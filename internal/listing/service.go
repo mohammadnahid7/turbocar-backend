@@ -17,7 +17,6 @@ import (
 // NotifierService is an interface for sending push notifications
 type NotifierService interface {
 	SendToUsers(userIDs []uuid.UUID, title, body string, data map[string]string) error
-	CreateInternalNotification(ctx context.Context, userID uuid.UUID, title, body, notifType string, data map[string]string) error
 }
 
 // ListingService struct
@@ -426,28 +425,6 @@ func (s *ListingService) ToggleFavorite(ctx context.Context, userID, carID uuid.
 	}
 
 	err = s.repo.AddToFavorites(ctx, userID, carID)
-	if err == nil {
-		// Create notification if favorited successfully
-		go func() {
-			// Fetch car details for notification
-			car, err := s.repo.FindByID(context.Background(), carID)
-			if err != nil {
-				log.Printf("Failed to fetch car for notification: %v", err)
-				return
-			}
-
-			title := "Car Saved"
-			body := fmt.Sprintf("You have saved %s to your favorites.", car.Title)
-			data := map[string]string{
-				"car_id": carID.String(),
-				"type":   "system",
-			}
-
-			if s.notifier != nil {
-				_ = s.notifier.CreateInternalNotification(context.Background(), userID, title, body, "system", data)
-			}
-		}()
-	}
 	return true, err
 }
 

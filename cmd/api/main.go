@@ -257,6 +257,12 @@ func main() {
 	chatHub := chat.NewHub(chatService)
 	chatHandler := chat.NewHandler(chatHub, chatService)
 
+	// Wire up WebSocket broadcaster for real-time notifications
+	if notifService != nil {
+		notifService.SetWebSocketBroadcaster(chatHub)
+		log.Println("✓ WebSocket broadcaster wired to notification service")
+	}
+
 	// Start WebSocket Hub in background
 	go chatHub.Run()
 

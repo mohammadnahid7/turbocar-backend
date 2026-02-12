@@ -22,8 +22,8 @@ type NotifierService interface {
 
 // NotificationService is an interface for the new notification system
 type NotificationService interface {
-	CreateAndSend(ctx context.Context, userID uuid.UUID, title, body, notifType, imageURL string, data map[string]interface{}) (*notification.Notification, error)
-	CreateAndSendBulk(ctx context.Context, userIDs []uuid.UUID, title, body, notifType, imageURL string, data map[string]interface{}) error
+	CreateAndSend(ctx context.Context, userID uuid.UUID, title, body, notifType string, data map[string]interface{}) (*notification.Notification, error)
+	CreateAndSendBulk(ctx context.Context, userIDs []uuid.UUID, title, body, notifType string, data map[string]interface{}) error
 }
 
 // ListingService struct
@@ -390,7 +390,7 @@ func (s *ListingService) sendPriceChangeNotifications(carID, ownerID uuid.UUID, 
 	if s.notificationService != nil {
 		// Convert validUserIDs to []uuid.UUID for the bulk method
 		ctx := context.Background()
-		err := s.notificationService.CreateAndSendBulk(ctx, validUserIDs, title, body, "price_change", carImage, dataMap)
+		err := s.notificationService.CreateAndSendBulk(ctx, validUserIDs, title, body, "price_change", dataMap)
 		if err != nil {
 			log.Printf("Failed to send price change notifications via new service: %v", err)
 		} else {
@@ -406,7 +406,6 @@ func (s *ListingService) sendPriceChangeNotifications(carID, ownerID uuid.UUID, 
 			"car_id":       carID.String(),
 			"old_price":    fmt.Sprintf("%.0f", oldPrice),
 			"new_price":    fmt.Sprintf("%.0f", newPrice),
-			"car_image":    carImage,
 			"click_action": "FLUTTER_NOTIFICATION_CLICK",
 		}
 

@@ -13,7 +13,6 @@ type Notification struct {
 	Title     string                 `json:"title" gorm:"type:varchar(255);not null"`
 	Body      string                 `json:"body" gorm:"type:text;not null"`
 	Type      string                 `json:"type" gorm:"type:varchar(50);default:'general'"` // price_change, general, etc.
-	ImageURL  string                 `json:"image_url,omitempty" gorm:"type:varchar(512)"`
 	Data      map[string]interface{} `json:"data,omitempty" gorm:"type:jsonb;serializer:json"`
 	IsRead    bool                   `json:"is_read" gorm:"default:false"`
 	CreatedAt time.Time              `json:"created_at"`
@@ -31,7 +30,6 @@ type NotificationResponse struct {
 	Title     string                 `json:"title"`
 	Body      string                 `json:"body"`
 	Type      string                 `json:"type"`
-	ImageURL  string                 `json:"image_url,omitempty"`
 	Data      map[string]interface{} `json:"data,omitempty"`
 	IsRead    bool                   `json:"is_read"`
 	CreatedAt time.Time              `json:"created_at"`
@@ -44,7 +42,6 @@ func (n *Notification) ToResponse() NotificationResponse {
 		Title:     n.Title,
 		Body:      n.Body,
 		Type:      n.Type,
-		ImageURL:  n.ImageURL,
 		Data:      n.Data,
 		IsRead:    n.IsRead,
 		CreatedAt: n.CreatedAt,

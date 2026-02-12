@@ -183,42 +183,54 @@ func (h *Hub) GetOnlineCount() int {
 	return len(h.clients)
 }
 
-// NotificationPayload represents a real-time notification sent via WebSocket
-type NotificationPayload struct {
-	ID        string                 `json:"id"`
-	Type      string                 `json:"type"`
-	Title     string                 `json:"title"`
-	Body      string                 `json:"body"`
-	Data      map[string]interface{} `json:"data"`
-	IsRead    bool                   `json:"is_read"`
-	CreatedAt time.Time              `json:"created_at"`
-}
-
-// SendNotification sends a real-time notification to a specific user via WebSocket
-// This implements the WebSocketBroadcaster interface from the notification package
-func (h *Hub) SendNotification(userID uuid.UUID, notificationID string, notificationType string, title string, body string, data map[string]interface{}, createdAt time.Time) error {
+// SendNotification sends a notification to a specific user via WebSocket
+// Returns true if the user was online and notification was sent, false otherwise
+func (h *Hub) SendNotification(userID uuid.UUID, notificationData map[string]interface{}) bool {
 	h.mu.RLock()
 	client, ok := h.clients[userID]
 	h.mu.RUnlock()
 
 	if !ok {
-		// User is not online, that's fine - they'll get it via FCM or when they come online
-		return nil
+		return false
 	}
 
-	// Create a WebSocket message with type "notification"
-	// We encode the notification as JSON in the Content field
-	select {
-	case client.send <- &WSMessage{
+	msg := &WSMessage{
 		Type:      "notification",
-		Content:   fmt.Sprintf(`{"id":"%s","type":"%s","title":"%s","body":"%s","is_read":false,"created_at":"%s"}`, notificationID, notificationType, title, body, createdAt.Format(time.RFC3339)),
+		Data:      notificationData,
 		Timestamp: time.Now(),
-	}:
-		log.Printf("Sent real-time notification to user %s", userID)
-		return nil
+	}
+
+	select {
+	case client.send <- msg:
+		return true
 	default:
-		// Buffer full, client might be slow
-		log.Printf("Client buffer full for user %s, notification dropped", userID)
-		return fmt.Errorf("client buffer full")
+		// Buffer full, couldn't send
+		return false
+	}
+}
+
+// SendNotificationCount sends the unread notification count to a specific user
+func (h *Hub) SendNotificationCount(userID uuid.UUID, count int64) bool {
+	h.mu.RLock()
+	client, ok := h.clients[userID]
+	h.mu.RUnlock()
+
+	if !ok {
+		return false
+	}
+
+	msg := &WSMessage{
+		Type: "notification:unread",
+		Data: map[string]interface{}{
+			"count": count,
+		},
+		Timestamp: time.Now(),
+	}
+
+	select {
+	case client.send <- msg:
+		return true
+	default:
+		return false
 	}
 }

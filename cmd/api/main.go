@@ -236,32 +236,40 @@ func main() {
 		api.POST("/upload", auth.AuthMiddleware(cfg), listingHandler.UploadImage)
 	}
 
-	// Initialize notification service (for push notifications)
-	var notificationService chat.NotificationSender
-	notifService, err := notification.NewService(cfg)
+	// Initialize notification repository
+	notificationRepo := notification.NewRepository(database.DB)
+
+	// Initialize FCM client for push notifications
+	var fcmClient notification.FCMService
+	fcmService, err := notification.NewFCMClient(cfg)
 	if err != nil {
-		log.Printf("⚠ FCM/Notification service initialization failed: %v", err)
+		log.Printf("⚠ FCM service initialization failed: %v", err)
 		log.Println("  Push notifications will not work until Firebase is configured")
-		notificationService = nil
+		fcmClient = nil
 	} else {
-		notificationService = notifService
+		fcmClient = fcmService
 		// Set DB for device token lookups
-		notifService.SetDB(database.DB)
-		// Wire notifier to listing service for price change notifications
-		listingService.SetNotifier(notifService)
+		fcmService.SetDB(database.DB)
+		log.Println("✓ FCM service initialized successfully")
 	}
+
+	// Initialize notification service (without WebSocket sender initially)
+	notificationService := notification.NewService(notificationRepo, nil, fcmClient)
 
 	// Initialize chat components
 	chatRepo := chat.NewRepository(database.DB)
 	chatService := chat.NewService(chatRepo, notificationService)
 	chatHub := chat.NewHub(chatService)
-	chatHandler := chat.NewHandler(chatHub, chatService)
 
-	// Wire up WebSocket broadcaster for real-time notifications
-	if notifService != nil {
-		notifService.SetWebSocketBroadcaster(chatHub)
-		log.Println("✓ WebSocket broadcaster wired to notification service")
-	}
+	// Now set the WebSocket sender (chatHub) on notification service
+	notificationService.SetWebSocketSender(chatHub)
+
+	// Wire notification service to listing service for price change notifications
+	listingService.SetNotificationService(notificationService)
+
+	// Create handlers
+	chatHandler := chat.NewHandler(chatHub, chatService)
+	notificationHandler := notification.NewHandler(notificationService)
 
 	// Start WebSocket Hub in background
 	go chatHub.Run()
@@ -269,14 +277,8 @@ func main() {
 	// Register chat routes
 	chatHandler.RegisterRoutes(api, auth.AuthMiddleware(cfg))
 
-	// Initialize Notification Handlers (HTTP API for history/read status)
-	if notifService != nil {
-		notificationHandler := notification.NewHandler(notifService)
-		api.Group("/notifications").Use(auth.AuthMiddleware(cfg)).GET("", notificationHandler.List)
-		api.Group("/notifications").Use(auth.AuthMiddleware(cfg)).GET("/unread-count", notificationHandler.GetUnreadCount)
-		api.Group("/notifications").Use(auth.AuthMiddleware(cfg)).PATCH("/:id/read", notificationHandler.MarkAsRead)
-		api.Group("/notifications").Use(auth.AuthMiddleware(cfg)).PATCH("/read-all", notificationHandler.MarkAllAsRead)
-	}
+	// Register notification routes
+	notificationHandler.RegisterRoutes(api, auth.AuthMiddleware(cfg))
 
 	// Start server
 	serverAddr := ":" + cfg.ServerPort

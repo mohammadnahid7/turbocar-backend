@@ -1,0 +1,1339 @@
+basePath: /
+definitions:
+  auth.AuthResponse:
+    description: Authentication response with tokens and user data
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user:
+        $ref: '#/definitions/auth.UserDTO'
+    type: object
+  auth.ChangePasswordRequest:
+    description: Request to change user password
+    properties:
+      current_password:
+        example: OldPassword123!
+        type: string
+      new_password:
+        example: NewPassword123!
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  auth.ErrorResponse:
+    description: Error response structure
+    properties:
+      error:
+        example: Bad Request
+        type: string
+      message:
+        example: Invalid input data
+        type: string
+    type: object
+  auth.LoginRequest:
+    description: Login request with email/phone and password
+    properties:
+      email_or_phone:
+        example: user@example.com
+        type: string
+      password:
+        example: SecurePass123
+        type: string
+    required:
+    - email_or_phone
+    - password
+    type: object
+  auth.MessageResponse:
+    description: Simple message response
+    properties:
+      message:
+        example: Operation successful
+        type: string
+    type: object
+  auth.RefreshTokenRequest:
+    description: Request to refresh access token
+    properties:
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    required:
+    - refresh_token
+    type: object
+  auth.RegisterRequest:
+    description: Registration request with user details
+    properties:
+      dob:
+        example: "1990-01-01"
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      full_name:
+        example: John Doe
+        type: string
+      gender:
+        example: male
+        type: string
+      password:
+        example: SecurePass123
+        minLength: 8
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+    required:
+    - email
+    - full_name
+    - password
+    - phone
+    type: object
+  auth.SendOTPRequest:
+    description: Request to send OTP to phone number
+    properties:
+      phone:
+        example: "+1234567890"
+        type: string
+    required:
+    - phone
+    type: object
+  auth.UpdateProfileRequest:
+    description: Request to update user profile
+    properties:
+      dob:
+        example: "1990-01-01"
+        type: string
+      full_name:
+        example: John Doe
+        type: string
+      gender:
+        example: male
+        type: string
+      profile_photo_url:
+        example: https://example.com/photo.jpg
+        type: string
+    type: object
+  auth.UserDTO:
+    description: User information in API responses
+    properties:
+      dob:
+        example: "1990-01-01T00:00:00Z"
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      full_name:
+        example: John Doe
+        type: string
+      gender:
+        example: male
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_dealer:
+        example: false
+        type: boolean
+      is_verified:
+        example: true
+        type: boolean
+      phone:
+        example: "+1234567890"
+        type: string
+      profile_photo_url:
+        example: https://example.com/photo.jpg
+        type: string
+    type: object
+  auth.VerifyOTPRequest:
+    description: Request to verify OTP code
+    properties:
+      code:
+        example: "123456"
+        type: string
+      phone:
+        example: "+1234567890"
+        type: string
+    required:
+    - code
+    - phone
+    type: object
+  chat.ChatHistoryResponse:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/chat.MessageResponse'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total_count:
+        type: integer
+    type: object
+  chat.Conversation:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/chat.Message'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      participants:
+        description: Relations
+        items:
+          $ref: '#/definitions/chat.ConversationParticipant'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  chat.ConversationParticipant:
+    properties:
+      conversation_id:
+        type: string
+      joined_at:
+        type: string
+      last_read_message_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  chat.ConversationResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      last_message:
+        $ref: '#/definitions/chat.MessageResponse'
+      metadata:
+        additionalProperties: true
+        type: object
+      participants:
+        items:
+          $ref: '#/definitions/chat.ParticipantResponse'
+        type: array
+      unread_count:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  chat.Message:
+    properties:
+      content:
+        type: string
+      conversation_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      media_url:
+        type: string
+      message_type:
+        description: text, image, file
+        type: string
+      sender_id:
+        type: string
+    type: object
+  chat.MessageResponse:
+    properties:
+      content:
+        type: string
+      conversation_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      media_url:
+        type: string
+      message_type:
+        type: string
+      sender_id:
+        type: string
+      sender_name:
+        type: string
+    type: object
+  chat.ParticipantResponse:
+    properties:
+      avatar_url:
+        type: string
+      full_name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  chat.StartConversationRequest:
+    properties:
+      context:
+        additionalProperties: true
+        type: object
+      participant_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - participant_ids
+    type: object
+  listing.Car:
+    properties:
+      chat_only:
+        type: boolean
+      city:
+        type: string
+      color:
+        type: string
+      condition:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      expires_at:
+        type: string
+      fuel_type:
+        type: string
+      id:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      is_featured:
+        type: boolean
+      latitude:
+        description: Computed from PostGIS, not stored
+        type: number
+      longitude:
+        description: Computed from PostGIS, not stored
+        type: number
+      make:
+        type: string
+      mileage:
+        type: integer
+      model:
+        type: string
+      price:
+        type: number
+      seller:
+        allOf:
+        - $ref: '#/definitions/listing.SellerInfo'
+        description: Joins/Extras - populated via JOIN queries, not stored in cars
+          table
+      seller_id:
+        type: string
+      state:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      transmission:
+        type: string
+      updated_at:
+        type: string
+      views_count:
+        type: integer
+      vin:
+        type: string
+      year:
+        type: integer
+    type: object
+  listing.CarResponse:
+    description: Detailed car information response
+    properties:
+      chat_only:
+        type: boolean
+      city:
+        type: string
+      color:
+        type: string
+      condition:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      expires_at:
+        type: string
+      fuel_type:
+        type: string
+      id:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      is_favorited:
+        example: false
+        type: boolean
+      is_featured:
+        type: boolean
+      is_owner:
+        example: true
+        type: boolean
+      latitude:
+        description: Computed from PostGIS, not stored
+        type: number
+      longitude:
+        description: Computed from PostGIS, not stored
+        type: number
+      make:
+        type: string
+      mileage:
+        type: integer
+      model:
+        type: string
+      price:
+        type: number
+      seller:
+        allOf:
+        - $ref: '#/definitions/listing.SellerInfo'
+        description: Joins/Extras - populated via JOIN queries, not stored in cars
+          table
+      seller_id:
+        type: string
+      state:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      transmission:
+        type: string
+      updated_at:
+        type: string
+      views_count:
+        type: integer
+      vin:
+        type: string
+      year:
+        type: integer
+    type: object
+  listing.SellerInfo:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      profile_photo:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: http://www.example.com/support
+  description: A high-performance backend for a second-hand car reselling marketplace
+  license:
+    name: MIT
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Car Reselling Backend API
+  version: "1.0"
+paths:
+  /api/auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the authenticated user's password
+      parameters:
+      - description: Password change data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with email/phone and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      summary: Login user
+      tags:
+      - auth
+  /api/auth/logout:
+    post:
+      description: Logout the current user by invalidating their session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.MessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - auth
+  /api/auth/me:
+    get:
+      description: Get the current authenticated user's information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.UserDTO'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - auth
+    put:
+      consumes:
+      - application/json
+      description: Update the current authenticated user's profile information
+      parameters:
+      - description: Profile update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.UserDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update profile
+      tags:
+      - auth
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refresh the access token using a refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email, phone, password, and full name
+      parameters:
+      - description: Registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - auth
+  /api/auth/send-otp:
+    post:
+      consumes:
+      - application/json
+      description: Send a verification OTP to the phone number
+      parameters:
+      - description: Phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SendOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      summary: Send OTP
+      tags:
+      - auth
+  /api/auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP code sent to the phone number
+      parameters:
+      - description: Phone and OTP code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/auth.ErrorResponse'
+      summary: Verify OTP
+      tags:
+      - auth
+  /api/cars:
+    get:
+      consumes:
+      - application/json
+      description: Search and filter car listings
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Make
+        in: query
+        name: make
+        type: string
+      - description: Model
+        in: query
+        name: model
+        type: string
+      - description: Min Price
+        in: query
+        name: min_price
+        type: number
+      - description: Max Price
+        in: query
+        name: max_price
+        type: number
+      - description: City
+        in: query
+        name: city
+        type: string
+      - description: State
+        in: query
+        name: state
+        type: string
+      - description: Condition
+        in: query
+        name: condition
+        type: string
+      - description: Sort By
+        in: query
+        name: sort_by
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List car listings
+      tags:
+      - listings
+    post:
+      consumes:
+      - multipart/form-data
+      description: Create a new car listing with images
+      parameters:
+      - description: Car Title
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: Description
+        in: formData
+        name: description
+        required: true
+        type: string
+      - description: Make (e.g. Toyota)
+        in: formData
+        name: make
+        required: true
+        type: string
+      - description: Model (e.g. Camry)
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: Year
+        in: formData
+        name: year
+        required: true
+        type: integer
+      - description: Mileage
+        in: formData
+        name: mileage
+        required: true
+        type: integer
+      - description: Price
+        in: formData
+        name: price
+        required: true
+        type: number
+      - description: Condition
+        in: formData
+        name: condition
+        required: true
+        type: string
+      - description: Transmission
+        in: formData
+        name: transmission
+        required: true
+        type: string
+      - description: Fuel Type
+        in: formData
+        name: fuel_type
+        required: true
+        type: string
+      - description: Color
+        in: formData
+        name: color
+        required: true
+        type: string
+      - description: VIN
+        in: formData
+        name: vin
+        type: string
+      - description: City
+        in: formData
+        name: city
+        required: true
+        type: string
+      - description: State
+        in: formData
+        name: state
+        required: true
+        type: string
+      - description: Latitude
+        in: formData
+        name: latitude
+        required: true
+        type: number
+      - description: Longitude
+        in: formData
+        name: longitude
+        required: true
+        type: number
+      - description: Car Images
+        in: formData
+        name: images
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/listing.Car'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new car listing
+      tags:
+      - listings
+  /api/cars/{id}:
+    delete:
+      description: Soft delete a car listing
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a car listing
+      tags:
+      - listings
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a car listing
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/listing.CarResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a car listing
+      tags:
+      - listings
+    put:
+      consumes:
+      - multipart/form-data
+      description: Update an existing car listing details and images
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Car Title
+        in: formData
+        name: title
+        type: string
+      - description: Description
+        in: formData
+        name: description
+        type: string
+      - description: Price
+        in: formData
+        name: price
+        type: number
+      - description: New Images
+        in: formData
+        name: images
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/listing.Car'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a car listing
+      tags:
+      - listings
+  /api/cars/{id}/favorite:
+    post:
+      consumes:
+      - application/json
+      description: Add or remove a car from favorites
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Toggle favorite status
+      tags:
+      - listings
+  /api/cars/{id}/view:
+    post:
+      description: Increment the view count for a car listing
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Increment view count
+      tags:
+      - listings
+  /api/cars/favorites:
+    get:
+      consumes:
+      - application/json
+      description: Get the authenticated user's favorite car listings
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get my favorites
+      tags:
+      - listings
+  /api/cars/my-listings:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about the authenticated user's car listings
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get my listings
+      tags:
+      - listings
+  /api/test/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a test image to Cloudflare R2 (no auth required - for testing
+        only)
+      parameters:
+      - description: Image file to upload
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns uploaded image URL
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Test image upload to R2
+      tags:
+      - test
+  /api/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image to Cloudflare R2
+      parameters:
+      - description: Image file to upload
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns uploaded image URL
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload an image
+      tags:
+      - common
+  /chat/conversations:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/chat.ConversationResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get user's conversations
+      tags:
+      - Chat
+    post:
+      parameters:
+      - description: Participant IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/chat.StartConversationRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/chat.Conversation'
+      security:
+      - BearerAuth: []
+      summary: Start a new conversation
+      tags:
+      - Chat
+  /chat/conversations/{id}/messages:
+    get:
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/chat.ChatHistoryResponse'
+      security:
+      - BearerAuth: []
+      summary: Get chat history
+      tags:
+      - Chat
+  /chat/device:
+    delete:
+      parameters:
+      - description: FCM token
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            fcm_token:
+              type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Unregister device from push notifications
+      tags:
+      - Chat
+    post:
+      parameters:
+      - description: Device info
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            device_type:
+              type: string
+            fcm_token:
+              type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Register device for push notifications
+      tags:
+      - Chat
+  /chat/ws:
+    get:
+      parameters:
+      - description: JWT token for authentication
+        in: query
+        name: token
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+      summary: Connect to chat WebSocket
+      tags:
+      - Chat
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

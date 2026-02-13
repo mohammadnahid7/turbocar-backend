@@ -1,0 +1,697 @@
+Project Context & Goal
+App Name: CarMarket (or your choice)
+Project Type: Second-hand car reselling marketplace mobile application
+Target Platform: Flutter (Android/iOS)
+Target Scale: 100k users
+Core Purpose:
+Connect car buyers and sellers directly. Users can browse listings, chat with sellers, post their own cars for sale, and manage their profiles. The app prioritizes safety, trust, and ease of use in peer-to-peer car transactions.
+Key Differentiators:
+
+Strong verification and safety features
+Real-time chat communication
+Location-based search
+User ratings and reviews
+Easy listing creation with image optimization
+
+Technical Philosophy:
+
+Performance-first (hence Go backend)
+Scalable architecture from day one
+Security and data privacy as core requirements
+Clean, maintainable code structure
+RESTful API design with WebSocket support for real-time features
+
+
+Development Phases
+Phase 1: Project Setup & Foundation ✅ (COMPLETED)
+Status: Authentication module complete
+What's Done:
+
+User registration and login
+JWT token-based authentication
+Phone/email verification
+Password hashing and security
+
+
+Phase 2: Listing Module (CURRENT PHASE)
+2.1 Database Schema Setup
+File: migrations/002_create_listings_tables.sql
+sql-- Create cars table with all fields
+-- Create indexes for performance (status, price, location, created_at)
+-- Create favorites table
+-- Create car_views table for analytics
+-- Add foreign key constraints
+-- Add check constraints for data validation
+```
+
+**Tasks for Cursor:**
+1. Create migration file in `/migrations` folder
+2. Include all fields from the brief: id, seller_id, title, description, make, model, year, mileage, price, condition, transmission, fuel_type, color, vin, images (text array), city, state, coordinates (PostGIS point), status, is_featured, views_count, created_at, updated_at, expires_at
+3. Add proper indexes: idx_cars_status, idx_cars_seller, idx_cars_price, idx_cars_location, idx_cars_created_at
+4. Create favorites table with user_id and car_id
+5. Run migration to set up tables
+
+---
+
+#### 2.2 Go Project Structure
+
+**Directory Structure:**
+```
+backend/
+├── cmd/
+│   └── api/
+│       └── main.go
+├── internal/
+│   ├── auth/           (already done)
+│   ├── listing/        (NEW - current phase)
+│   │   ├── handler.go
+│   │   ├── service.go
+│   │   ├── repository.go
+│   │   ├── models.go
+│   │   ├── validation.go
+│   │   └── storage.go
+│   ├── middleware/
+│   ├── database/
+│   └── utils/
+├── config/
+├── migrations/
+└── go.mod
+Tasks for Cursor:
+
+Create /internal/listing directory
+Set up module structure with empty files
+Define package naming convention: package listing
+
+
+2.3 Models & Structs
+File: internal/listing/models.go
+Tasks for Cursor:
+go// Define these structs:
+
+1. Car struct (main model matching DB schema)
+   - Use proper Go types: uuid.UUID, time.Time, []string for images
+   - Add JSON tags for API responses
+   - Add DB tags for database mapping
+
+2. CreateCarRequest struct
+   - All required fields with validation tags
+   - Use binding:"required" for mandatory fields
+   - Add validation: min, max, gt (greater than)
+
+3. UpdateCarRequest struct
+   - Similar to CreateCarRequest but all fields optional
+   - Allow partial updates
+
+4. ListCarsQuery struct
+   - Pagination: Page, Limit
+   - Filters: Make, Model, MinPrice, MaxPrice, City, State, Condition
+   - Sorting: SortBy field
+   - Use form tags for query parameters
+
+5. CarResponse struct
+   - Include seller info (name, rating, photo)
+   - Add isFavorited boolean
+   - Add computed fields like isOwner
+
+6. Constants for enums:
+   - CarStatus: active, sold, expired, flagged, deleted
+   - CarCondition: excellent, good, fair
+   - Transmission: automatic, manual
+   - FuelType: petrol, diesel, electric, hybrid
+
+2.4 Repository Layer (Database Operations)
+File: internal/listing/repository.go
+Tasks for Cursor:
+go// Create ListingRepository interface and implementation
+
+type ListingRepository interface {
+    Create(ctx context.Context, car *Car) error
+    FindByID(ctx context.Context, id uuid.UUID) (*Car, error)
+    FindAll(ctx context.Context, query ListCarsQuery) ([]Car, int, error)
+    Update(ctx context.Context, car *Car) error
+    Delete(ctx context.Context, id uuid.UUID) error
+    FindBySellerID(ctx context.Context, sellerID uuid.UUID, page, limit int) ([]Car, int, error)
+    IncrementViews(ctx context.Context, carID uuid.UUID) error
+
+    // Favorites
+    AddToFavorites(ctx context.Context, userID, carID uuid.UUID) error
+    RemoveFromFavorites(ctx context.Context, userID, carID uuid.UUID) error
+    GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]Car, int, error)
+    IsFavorited(ctx context.Context, userID, carID uuid.UUID) (bool, error)
+}
+
+// Implement all methods with:
+// - Proper SQL queries using pgx or database/sql
+// - Context handling for timeouts
+// - Error handling and wrapping
+// - Pagination using OFFSET and LIMIT
+// - Dynamic WHERE clauses based on filters
+// - JOIN with users table for seller info
+// - Transaction support where needed
+```
+
+**Key SQL Queries to Implement:**
+1. INSERT with RETURNING clause
+2. SELECT with JOINs (cars + users)
+3. UPDATE with WHERE conditions
+4. Soft DELETE (UPDATE status = 'deleted')
+5. Complex SELECT with multiple WHERE conditions and ORDER BY
+6. COUNT query for pagination total
+
+---
+
+#### 2.5 Storage Service (Image Handling)
+
+**File:** `internal/listing/storage.go`
+
+**Required Environment Variables:**
+```
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_REGION
+AWS_BUCKET_NAME
+# OR for Cloudflare R2
+R2_ACCOUNT_ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME
+Tasks for Cursor:
+go// Create StorageService interface
+
+type StorageService interface {
+    UploadImage(ctx context.Context, file multipart.File, filename string) (string, error)
+    UploadMultipleImages(ctx context.Context, files []*multipart.FileHeader, carID string) ([]string, error)
+    DeleteImage(ctx context.Context, imageURL string) error
+    DeleteMultipleImages(ctx context.Context, imageURLs []string) error
+}
+
+// Implementation tasks:
+1. Initialize AWS S3 client or R2 client
+2. Create image resize function (3 sizes: thumbnail, medium, original)
+   - Use "github.com/disintegration/imaging" package
+   - Thumbnail: 300x200px
+   - Medium: 800x600px
+   - Original: max 1920x1080px
+
+3. Upload flow:
+   - Validate file type (JPEG, PNG only)
+   - Validate file size (max 10MB)
+   - Resize to 3 versions
+   - Upload all versions to S3/R2
+   - Generate CDN URLs
+   - Return array of URLs
+
+4. File naming convention:
+   cars/{carID}/{timestamp}_thumbnail.jpg
+   cars/{carID}/{timestamp}_medium.jpg
+   cars/{carID}/{timestamp}_original.jpg
+
+5. Handle errors gracefully
+6. Add logging for upload success/failure
+Dependencies to Add:
+bashgo get github.com/aws/aws-sdk-go-v2
+go get github.com/disintegration/imaging
+
+2.6 Service Layer (Business Logic)
+File: internal/listing/service.go
+Tasks for Cursor:
+go// Create ListingService struct
+
+type ListingService struct {
+    repo    ListingRepository
+    storage StorageService
+    cache   *redis.Client
+}
+
+// Implement these methods:
+
+1. CreateListing(ctx, userID, request, images) (*Car, error)
+   - Validate input
+   - Check user hasn't exceeded rate limit (Redis: 5 listings/hour)
+   - Upload images via StorageService
+   - Create car record via repository
+   - Set expires_at to 90 days from now
+   - Return created car
+
+2. GetListing(ctx, carID, userID) (*CarResponse, error)
+   - Check Redis cache first
+   - If not cached, fetch from DB
+   - Increment view counter (async or batch)
+   - Check if favorited by current user
+   - Cache result (TTL: 5 minutes)
+   - Return enriched response
+
+3. ListListings(ctx, query, userID) ([]CarResponse, int, error)
+   - Validate pagination params
+   - Build filters from query
+   - Fetch from repository
+   - For each car, check if favorited by user (batch query)
+   - Return paginated results with total count
+
+4. UpdateListing(ctx, carID, userID, request, newImages) (*Car, error)
+   - Verify ownership (car.SellerID == userID)
+   - Upload new images if provided
+   - Update car record
+   - Invalidate cache
+   - Return updated car
+
+5. DeleteListing(ctx, carID, userID) error
+   - Verify ownership
+   - Soft delete (set status = 'deleted')
+   - Delete images from storage
+   - Invalidate cache
+
+6. GetMyListings(ctx, userID, page, limit) ([]Car, int, error)
+   - Fetch user's listings
+   - Include all statuses (active, sold, expired)
+   - Return with pagination
+
+7. ToggleFavorite(ctx, userID, carID) (bool, error)
+   - Check if already favorited
+   - Add or remove from favorites
+   - Return new status (true/false)
+
+8. GetFavorites(ctx, userID, page, limit) ([]Car, int, error)
+   - Fetch user's favorited cars
+   - Return with pagination
+
+// Add helper methods:
+- validateCreateRequest(request) error
+- checkRateLimit(userID) error
+- incrementViewCount(carID) (use Redis counter, flush to DB periodically)
+```
+
+**Redis Keys to Use:**
+```
+cache:car:{carId} → car JSON (TTL: 5min)
+ratelimit:listings:{userId} → counter (TTL: 1 hour)
+views:car:{carId} → counter (flush every 100 views)
+
+2.7 Validation Layer
+File: internal/listing/validation.go
+Tasks for Cursor:
+go// Create validation functions
+
+1. ValidateCreateCarRequest(req CreateCarRequest) error
+   - Title: 10-100 characters
+   - Price: must be > 0
+   - Year: between 1900 and currentYear + 1
+   - Mileage: >= 0
+   - Make, Model: not empty, alphanumeric
+   - Condition: must be in allowed values
+   - City, State: not empty
+   - Return detailed error messages
+
+2. ValidateUpdateCarRequest(req UpdateCarRequest) error
+   - Same rules as create but all fields optional
+   - At least one field must be provided
+
+3. ValidateImages(files []*multipart.FileHeader) error
+   - Check count: 3-10 images
+   - Check file size: each < 10MB
+   - Check file type: only .jpg, .jpeg, .png
+   - Return error if validation fails
+
+4. ValidateListQuery(query ListCarsQuery) error
+   - Page: >= 1
+   - Limit: 1-100
+   - Price range: MinPrice <= MaxPrice
+   - SortBy: must be in allowed values
+
+5. Helper: IsValidCarStatus(status string) bool
+6. Helper: IsValidCondition(condition string) bool
+7. Helper: IsValidFuelType(fuelType string) bool
+
+2.8 HTTP Handlers (API Endpoints)
+File: internal/listing/handler.go
+Tasks for Cursor:
+go// Create ListingHandler struct
+
+type ListingHandler struct {
+    service *ListingService
+}
+
+// Implement these HTTP handlers:
+
+1. CreateListing (POST /api/cars)
+   - Extract userID from JWT token (middleware)
+   - Parse multipart form data
+   - Parse JSON request body
+   - Extract uploaded images
+   - Call service.CreateListing()
+   - Return 201 Created with car JSON
+   - Handle errors: 400, 401, 429 (rate limit), 500
+
+2. GetListing (GET /api/cars/:id)
+   - Parse car ID from URL params
+   - Extract userID from token (optional, for isFavorited)
+   - Call service.GetListing()
+   - Return 200 OK with car JSON
+   - Handle errors: 400, 404, 500
+
+3. ListListings (GET /api/cars)
+   - Parse query parameters into ListCarsQuery
+   - Extract userID from token (optional)
+   - Call service.ListListings()
+   - Return 200 OK with {data: [], total: int, page: int, limit: int}
+   - Handle errors: 400, 500
+
+4. UpdateListing (PUT /api/cars/:id)
+   - Require authentication
+   - Parse car ID and request body
+   - Parse new images if provided
+   - Call service.UpdateListing()
+   - Return 200 OK with updated car
+   - Handle errors: 400, 401, 403, 404, 500
+
+5. DeleteListing (DELETE /api/cars/:id)
+   - Require authentication
+   - Parse car ID
+   - Call service.DeleteListing()
+   - Return 204 No Content
+   - Handle errors: 401, 403, 404, 500
+
+6. GetMyListings (GET /api/cars/my-listings)
+   - Require authentication
+   - Parse pagination params
+   - Call service.GetMyListings()
+   - Return 200 OK with listings
+   - Handle errors: 401, 500
+
+7. ToggleFavorite (POST /api/cars/:id/favorite)
+   - Require authentication
+   - Parse car ID
+   - Call service.ToggleFavorite()
+   - Return 200 OK with {favorited: bool}
+   - Handle errors: 401, 404, 500
+
+8. GetFavorites (GET /api/cars/favorites)
+   - Require authentication
+   - Parse pagination params
+   - Call service.GetFavorites()
+   - Return 200 OK with favorites
+   - Handle errors: 401, 500
+
+// Use Gin framework structure:
+func (h *ListingHandler) RegisterRoutes(r *gin.RouterGroup) {
+    r.POST("/cars", authMiddleware, h.CreateListing)
+    r.GET("/cars", h.ListListings) // public
+    r.GET("/cars/:id", h.GetListing) // public
+    r.PUT("/cars/:id", authMiddleware, h.UpdateListing)
+    r.DELETE("/cars/:id", authMiddleware, h.DeleteListing)
+    r.GET("/cars/my-listings", authMiddleware, h.GetMyListings)
+    r.POST("/cars/:id/favorite", authMiddleware, h.ToggleFavorite)
+    r.GET("/cars/favorites", authMiddleware, h.GetFavorites)
+}
+
+2.9 Main Application Integration
+File: cmd/api/main.go
+Tasks for Cursor:
+go// Update main.go to include listing module
+
+1. Initialize database connection pool
+2. Initialize Redis client
+3. Initialize S3/R2 storage client
+4. Create listing repository instance
+5. Create storage service instance
+6. Create listing service instance
+7. Create listing handler instance
+8. Register listing routes
+9. Add CORS middleware
+10. Add rate limiting middleware
+11. Start server
+
+Example structure:
+func main() {
+    // Load config
+    // Connect to PostgreSQL
+    // Connect to Redis
+    // Setup S3/R2
+
+    // Initialize listing module
+    listingRepo := listing.NewRepository(db)
+    storageService := listing.NewStorageService(s3Client, bucketName)
+    listingService := listing.NewService(listingRepo, storageService, redisClient)
+    listingHandler := listing.NewHandler(listingService)
+
+    // Setup Gin router
+    r := gin.Default()
+    r.Use(cors.Default())
+
+    api := r.Group("/api")
+    listingHandler.RegisterRoutes(api)
+
+    // Start server
+    r.Run(":3000")
+}
+
+2.10 Configuration & Environment
+File: config/config.go
+Tasks for Cursor:
+go// Add these config fields:
+
+type Config struct {
+    // Existing auth configs...
+
+    // Storage
+    AWSAccessKey    string
+    AWSSecretKey    string
+    AWSRegion       string
+    AWSBucketName   string
+
+    // Redis
+    RedisHost       string
+    RedisPort       string
+    RedisPassword   string
+
+    // Listing settings
+    MaxImagesPerListing int
+    MaxImageSizeMB      int
+    ListingExpiryDays   int
+    MaxListingsPerHour  int
+}
+
+// Load from environment variables
+func LoadConfig() (*Config, error) {
+    // Use viper or godotenv
+}
+```
+
+**File:** `.env.example`
+```
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/carmarket
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+# AWS S3 / Cloudflare R2
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=us-east-1
+AWS_BUCKET_NAME=carmarket-images
+
+# JWT
+JWT_SECRET=your-secret-key
+
+# Server
+PORT=3000
+
+# Listing Settings
+MAX_IMAGES_PER_LISTING=10
+MAX_IMAGE_SIZE_MB=10
+LISTING_EXPIRY_DAYS=90
+MAX_LISTINGS_PER_HOUR=5
+
+2.11 Testing
+Tasks for Cursor:
+
+Unit Tests (internal/listing/*_test.go):
+
+Test validation functions
+Test repository methods (use testcontainers for PostgreSQL)
+Test service business logic (mock repository)
+Test image processing
+
+
+Integration Tests:
+
+Test full API endpoints
+Test with real database (test database)
+Test file upload flow
+
+
+Sample Test File (internal/listing/service_test.go):
+
+gofunc TestCreateListing(t *testing.T) {
+    // Setup mocks
+    // Test valid creation
+    // Test rate limit
+    // Test validation errors
+}
+
+2.12 Documentation
+File: docs/LISTING_API.md
+Tasks for Cursor:
+Document all endpoints with:
+
+Method and path
+Request body schema
+Query parameters
+Response format
+Error codes
+Example curl commands
+
+Example:
+markdown## Create Listing
+
+POST /api/cars
+
+Headers:
+- Authorization: Bearer {token}
+- Content-Type: multipart/form-data
+
+Body:
+- title (string, required)
+- description (string)
+- make (string, required)
+- model (string, required)
+- year (int, required)
+- price (float, required)
+- images[] (files, 3-10 images)
+...
+
+Response (201):
+{
+  "id": "uuid",
+  "title": "...",
+  ...
+}
+
+Errors:
+- 400: Validation error
+- 401: Unauthorized
+- 429: Rate limit exceeded
+- 500: Server error
+
+Dependencies to Install
+bash# Core framework
+go get -u github.com/gin-gonic/gin
+
+# Database
+go get -u github.com/jackc/pgx/v5
+go get -u github.com/jmoiron/sqlx
+
+# Redis
+go get -u github.com/redis/go-redis/v9
+
+# AWS S3
+go get -u github.com/aws/aws-sdk-go-v2
+go get -u github.com/aws/aws-sdk-go-v2/config
+go get -u github.com/aws/aws-sdk-go-v2/service/s3
+
+# Image processing
+go get -u github.com/disintegration/imaging
+
+# Validation
+go get -u github.com/go-playground/validator/v10
+
+# UUID
+go get -u github.com/google/uuid
+
+# Environment variables
+go get -u github.com/joho/godotenv
+
+# CORS
+go get -u github.com/gin-contrib/cors
+
+Development Checklist
+Before Starting:
+
+ Ensure PostgreSQL is running
+ Ensure Redis is running
+ Create S3 bucket or R2 bucket
+ Set up environment variables
+ Run auth module to ensure it works
+
+Implementation Order:
+
+ Create database migration
+ Create models.go
+ Create validation.go
+ Create repository.go
+ Create storage.go
+ Create service.go
+ Create handler.go
+ Update main.go
+ Test each endpoint with Postman/curl
+ Write unit tests
+ Document APIs
+
+Testing Commands:
+bash# Run migrations
+go run cmd/migrate/main.go up
+
+# Run server
+go run cmd/api/main.go
+
+# Run tests
+go test ./internal/listing/... -v
+
+# Build
+go build -o bin/api cmd/api/main.go
+
+Success Criteria
+The listing module is complete when:
+
+ Users can create listings with images
+ Images are properly resized and uploaded to S3/R2
+ Users can browse listings with filters
+ Pagination works correctly
+ Users can update their own listings
+ Users can delete their own listings
+ View counter increments on each view
+ Users can favorite/unfavorite listings
+ Rate limiting prevents spam (5 listings/hour)
+ Redis caching improves performance
+ All endpoints return proper error codes
+ API documentation is complete
+
+
+Next Phases (Future)
+Phase 3: Chat Module (real-time messaging)
+Phase 4: Search & Filtering (Elasticsearch integration)
+Phase 5: Reviews & Ratings
+Phase 6: Admin Panel
+Phase 7: Analytics & Reporting
+Phase 8: Notifications (FCM integration)
+
+Notes for Cursor AI
+Context Awareness:
+
+This is a production application targeting 100k users
+Performance and scalability are critical
+Security must be enforced (JWT auth, ownership validation)
+Use Go best practices (error handling, context propagation)
+Follow clean architecture principles
+Write production-ready code, not prototypes
+
+Code Style:
+
+Use meaningful variable names
+Add comments for complex logic
+Handle all errors explicitly
+Use context for cancellation and timeouts
+Log important operations
+Return appropriate HTTP status codes
+
+Focus Areas:
+
+Database query optimization (use indexes)
+Image optimization (resize before upload)
+Caching strategy (Redis for hot data)
+Rate limiting (prevent abuse)
+Input validation (never trust client data)
+Error handling (graceful degradation)
